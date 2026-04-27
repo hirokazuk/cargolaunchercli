@@ -3,26 +3,26 @@ import { join } from "node:path";
 import { resolveFetchProxyUrl } from "../lib/proxy";
 import type { Credentials } from "../lib/credentials";
 import { toolAntDir, toolAntlibDir } from "../lib/paths";
+import installArtifactsToml from "./install-artifacts.toml";
+import type { ArtifactDirToml, InstallArtifactsToml } from "./install-artifacts.shared";
 
-const MVN_CENTRAL = "https://repo1.maven.org/maven2";
+/** Bun の `*.toml` が `any` に落ちる場合でも、共有スキーマで 1 箇所に型を固定 */
+const installConfig: InstallArtifactsToml = installArtifactsToml;
 
-const ARTIFACTS: readonly { url: string; dir: "ant" | "antlib"; fileName: string }[] = [
-  {
-    url: `${MVN_CENTRAL}/org/apache/ant/ant/1.10.15/ant-1.10.15.jar`,
-    dir: "ant",
-    fileName: "ant.jar",
-  },
-  {
-    url: `${MVN_CENTRAL}/org/apache/ant/ant-launcher/1.10.15/ant-launcher-1.10.15.jar`,
-    dir: "ant",
-    fileName: "ant-launcher.jar",
-  },
-  {
-    url: `${MVN_CENTRAL}/org/apache/maven/resolver/maven-resolver-ant-tasks/1.5.2/maven-resolver-ant-tasks-1.5.2-uber.jar`,
-    dir: "antlib",
-    fileName: "maven-resolver-ant-tasks-1.5.2-uber.jar",
-  },
-];
+const mvnBase = installConfig.mvn_central.replace(/\/+$/, "");
+
+const ARTIFACTS: readonly { url: string; dir: ArtifactDirToml; fileName: string }[] =
+  installConfig.artifacts.map((a) => {
+    if (a.dir !== "ant" && a.dir !== "antlib") {
+      throw new Error(`install-artifacts.toml: invalid dir "${String(a.dir)}"`);
+    }
+    const rel = a.artifact_path.replace(/^\/+/, "");
+    return {
+      url: `${mvnBase}/${rel}`,
+      dir: a.dir,
+      fileName: a.file_name,
+    };
+  });
 
 async function clearAntDir(root: string): Promise<void> {
   const dir = toolAntDir(root);

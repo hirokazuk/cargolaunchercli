@@ -1,0 +1,18 @@
+# Application config
+title = "My App"
+
+[owner]
+name = "John Doe"
+
+[[database]]
+enabled = true
+ports = [8000, 8001, 8002]
+connection_max = 5000
+
+[servers.alpha]
+ip = "10.0.0.1"
+role = "frontend"
+
+[servers.beta]
+ip = "10.0.0.2"
+role = "backend"
