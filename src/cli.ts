@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { parseArgs } from "node:util";
 import { resolveCredentials } from "./lib/credentials";
 import { resolveProjectRoot } from "./lib/paths";
 import { runDoctor } from "./commands/doctor";
@@ -41,160 +42,102 @@ ant run 追加:
 `);
 }
 
-type ParsedGlobal = { cwd?: string; help: boolean; argv: string[] };
+/** util.parseArgs の options（コマンド横断で宣言し、strict で安全にパースする） */
+const CLI_OPTIONS = {
+  cwd: { type: "string" as const },
+  help: { type: "boolean" as const, short: "h" as const },
+  user: { type: "string" as const, short: "u" as const },
+  password: { type: "string" as const, short: "p" as const },
+  "log-file": { type: "string" as const, short: "f" as const },
+  "proxy-url": { type: "string" as const },
+  "delete-log": { type: "boolean" as const },
+};
 
-function parseGlobal(argv: string[]): ParsedGlobal {
-  const out: string[] = [];
-  let cwd: string | undefined;
-  let help = false;
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i];
-    if (a === "--cwd" && argv[i + 1]) {
-      cwd = argv[++i];
-      continue;
-    }
-    if (a === "-h" || a === "--help") {
-      help = true;
-      continue;
-    }
-    out.push(a);
-  }
-  return { cwd, help, argv: out };
+/** Node の parseArgs が返す values を string に絞る */
+function optString(v: string | boolean | (string | boolean)[] | undefined): string | undefined {
+  return typeof v === "string" ? v : undefined;
 }
 
-type CredFlags = { user?: string; password?: string };
-
-/** -u / -p を剥がし、残りを返す */
-function parseCredFlags(args: string[]): { credFlags: CredFlags; rest: string[] } {
-  const rest: string[] = [];
-  const credFlags: CredFlags = {};
-  for (let i = 0; i < args.length; i++) {
-    const a = args[i];
-    if ((a === "-u" || a === "--user") && args[i + 1]) {
-      credFlags.user = args[++i];
-      continue;
-    }
-    if ((a === "-p" || a === "--password") && args[i + 1]) {
-      credFlags.password = args[++i];
-      continue;
-    }
-    rest.push(a);
+function extraArgsError(rest: readonly string[]): boolean {
+  if (rest.length > 0) {
+    console.error(`余分な引数: ${rest.join(" ")}`);
+    return true;
   }
-  return { credFlags, rest };
-}
-
-function parseProxyUrl(args: string[]): { proxyUrl?: string; rest: string[] } {
-  const rest: string[] = [];
-  let proxyUrl: string | undefined;
-  for (let i = 0; i < args.length; i++) {
-    const a = args[i];
-    if (a === "--proxy-url" && args[i + 1]) {
-      proxyUrl = args[++i];
-      continue;
-    }
-    rest.push(a);
-  }
-  return { proxyUrl, rest };
-}
-
-function parseStartArgs(args: string[]): {
-  logFile?: string;
-  deleteLog: boolean;
-  credFlags: CredFlags;
-  rest: string[];
-} {
-  let logFile: string | undefined;
-  let deleteLog = false;
-  const rest: string[] = [];
-  const credFlags: CredFlags = {};
-  for (let i = 0; i < args.length; i++) {
-    const a = args[i];
-    if ((a === "-f" || a === "--log-file") && args[i + 1]) {
-      logFile = args[++i];
-      continue;
-    }
-    if (a === "--delete-log") {
-      deleteLog = true;
-      continue;
-    }
-    if ((a === "-u" || a === "--user") && args[i + 1]) {
-      credFlags.user = args[++i];
-      continue;
-    }
-    if ((a === "-p" || a === "--password") && args[i + 1]) {
-      credFlags.password = args[++i];
-      continue;
-    }
-    rest.push(a);
-  }
-  return { logFile, deleteLog, credFlags, rest };
+  return false;
 }
 
 async function main(): Promise<number> {
-  const raw = process.argv.slice(2);
-  const g = parseGlobal(raw);
-  if (g.help || g.argv.length === 0) {
+  let parsed;
+  try {
+    parsed = parseArgs({
+      args: process.argv.slice(2),
+      options: CLI_OPTIONS,
+      allowPositionals: true,
+      strict: true,
+    });
+  } catch (e) {
+    console.error("引数の解析に失敗しました:", e);
     printHelp();
-    return g.help ? 0 : 1;
+    return 1;
   }
 
-  const root = resolveProjectRoot(g.cwd);
-  const [cmd, ...tail] = g.argv;
+  const { values, positionals } = parsed;
+
+  if (values.help === true || positionals.length === 0) {
+    printHelp();
+    return values.help === true ? 0 : 1;
+  }
+
+  const root = resolveProjectRoot(optString(values.cwd));
+  const cmd = positionals[0];
+  const tail = positionals.slice(1);
+
+  const cred = resolveCredentials({
+    user: optString(values.user),
+    password: optString(values.password),
+  });
 
   switch (cmd) {
-    case "doctor": {
-      if (tail.length > 0 && (tail[0] === "-h" || tail[0] === "--help")) {
-        printHelp();
-        return 0;
+    case "doctor":
+      if (extraArgsError(tail)) {
+        return 1;
       }
       return await runDoctor(root);
-    }
 
-    case "install": {
-      const { proxyUrl, rest } = parseProxyUrl(tail);
-      const { credFlags, rest: r2 } = parseCredFlags(rest);
-      if (r2.length > 0) {
-        console.error(`余分な引数: ${r2.join(" ")}`);
+    case "install":
+      if (extraArgsError(tail)) {
         return 1;
       }
-      const cred = resolveCredentials(credFlags);
-      return await runInstall(root, cred, proxyUrl);
-    }
+      return await runInstall(root, cred, optString(values["proxy-url"]));
 
-    case "start": {
-      const { logFile, deleteLog, credFlags, rest } = parseStartArgs(tail);
-      if (rest.length > 0) {
-        console.error(`余分な引数: ${rest.join(" ")}`);
+    case "start":
+      if (extraArgsError(tail)) {
         return 1;
       }
+      const logFile = optString(values["log-file"]);
       if (!logFile) {
         console.error("start には -f / --log-file が必要です");
         return 1;
       }
-      const cred = resolveCredentials(credFlags);
-      return await runStart(root, cred, { logFile, deleteLog });
-    }
+      return await runStart(root, cred, {
+        logFile,
+        deleteLog: values["delete-log"] === true,
+      });
 
-    case "build": {
+    case "build":
       if (tail[0] !== "full") {
         console.error('サブコマンドは "build full" のみ対応です');
         return 1;
       }
-      const { credFlags, rest } = parseCredFlags(tail.slice(1));
-      if (rest.length > 0) {
-        console.error(`余分な引数: ${rest.join(" ")}`);
+      if (extraArgsError(tail.slice(1))) {
         return 1;
       }
-      const cred = resolveCredentials(credFlags);
       return await runBuildFull(root, cred);
-    }
 
     case "ant": {
       const sub = tail[0];
       if (sub === "list") {
-        const extra = tail.slice(1);
-        if (extra.length > 0) {
-          console.error(`余分な引数: ${extra.join(" ")}`);
+        if (extraArgsError(tail.slice(1))) {
           return 1;
         }
         return await runAntList(root);
@@ -205,15 +148,10 @@ async function main(): Promise<number> {
           console.error("ant run <target> で target を指定してください");
           return 1;
         }
-        const afterTarget = tail.slice(2);
-        const { proxyUrl, rest } = parseProxyUrl(afterTarget);
-        const { credFlags, rest: r2 } = parseCredFlags(rest);
-        if (r2.length > 0) {
-          console.error(`余分な引数: ${r2.join(" ")}`);
+        if (extraArgsError(tail.slice(2))) {
           return 1;
         }
-        const cred = resolveCredentials(credFlags);
-        return await runAntRun(root, cred, target, proxyUrl);
+        return await runAntRun(root, cred, target, optString(values["proxy-url"]));
       }
       console.error('ant のサブコマンドは "list" または "run <target>" です');
       return 1;
