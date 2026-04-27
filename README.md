@@ -6,10 +6,11 @@ To install dependencies:
 bun install
 ```
 
-To run:
+To run the CLI:
 
 ```bash
-bun run index.ts
+bun src/cli.ts doctor
+# or: cargo-launcher doctor  (after linking / global install)
 ```
 
 This project was created using `bun init` in bun v1.3.13. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
