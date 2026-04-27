@@ -1,0 +1,236 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=Shift_JIS">
+<TITLE>Tomcat11ランチャー</TITLE>
+<HTA:APPLICATION APPLICATIONNAME="downloader" ICON="htasamp.ico" WINDOWSTATE="normal" ID="cargoLauncher" />
+<script>
+//実行パスを設定
+(new ActiveXObject("WScript.Shell")).CurrentDirectory = location.pathname.slice(0, location.pathname.lastIndexOf('\\'));
+window.resizeTo(480, 480);    // ウィンドウサイズ設定
+window.moveTo(100, 100);      // ウィンドウ移動
+var xmlHttp = new ActiveXObject("Msxml2.ServerXMLHTTP");
+var stream = new ActiveXObject("Adodb.Stream");
+var fso = new ActiveXObject("Scripting.FileSystemObject");
+var wshShell = new ActiveXObject("WScript.Shell");
+var ENV = wshShell.Environment('USER');
+var javaVersion = "";
+var javaBin = "";
+var cargo_launcher_version = "2.5.0"
+var cargo_launcher_tag = cargo_launcher_version
+var cargo_launcher_jar = "cargo_launcher-" + cargo_launcher_version + ".jar"
+
+function setTargetJavaHomeAndJavaBin() {
+    var java21Home = ENV.item("JAVA21_HOME");
+    if (java21Home) {
+        javaBin = fso.BuildPath(java21Home, "bin");
+        return
+    }
+    var javaHome = ENV.item("JAVA_HOME");
+    if (javaHome) {
+        javaBin = fso.BuildPath(javaHome, "bin");
+        return
+    }
+}
+setTargetJavaHomeAndJavaBin();
+document.title = "Tomcat11ランチャー" + " @ " + "JDK" + javaVersion;
+
+function output(text) {
+    var resultText = document.getElementById("list").innerHTML;
+    list.innerHTML = resultText + "<li>" + text + "</li>";
+}
+
+function createDownloader(user, password) {
+    var STREAM_TYPE_BINARY = 1;
+    var SAVE_CREATE_OVERWRITE = 2;
+    var DOT = ".";
+    var fail = false;
+    return function (url, outputFileName, targetDir) {
+        if (!fso.FolderExists(targetDir)) fso.CreateFolder(targetDir);
+        if (fail != true) {
+            try {
+                xmlHttp.open("GET", url, false, user, password);
+                var SXH_PROXY_SET_PROXY = 2
+                xmlHttp.setProxy(SXH_PROXY_SET_PROXY, "proxy.pal.local:8080")
+                xmlHttp.setProxyCredentials(user, password)
+
+                xmlHttp.send();
+                if (xmlHttp.readyState == 4 && xmlHttp.status == 200) {
+                    stream.type = STREAM_TYPE_BINARY;
+                    stream.open();
+                    var targetFile = targetDir + "/" + outputFileName
+                    eval("stream" + DOT + "write(xmlHttp.responseBody)");
+                    eval("stream" + DOT + "saveToFile(targetFile, SAVE_CREATE_OVERWRITE)");
+                    stream.close();
+                    output("<b>" + outputFileName + "が保存完了" + "</b>");
+                } else {
+                    output("<font color='red'>" + outputFileName + "失敗 (status: " + xmlHttp.status + ")</font>");
+                    fail = true;
+                }
+            } catch (e) {
+                throw e;
+            }
+        } else {
+            output(outputFileName + "は前ファイルのDLに失敗した為キャンセルされました。");
+        }
+    }
+}
+
+function installed() {
+    if (fso.FileExists("./tool/" + cargo_launcher_jar)) {
+        output(cargo_launcher_jar + "はインストール済み");
+    } else {
+        output(cargo_launcher_jar + "はまだインストールされていません");
+    }
+    user.value = wshShell.ExpandEnvironmentStrings("%USERNAME%");
+    password.focus();
+    antread();
+}
+
+function download() {
+    if (password.value.length == 0) {
+        alert("パスワードが設定されていません");
+        return
+    }
+    downloader = createDownloader(user.value, password.value);
+
+    //antのダウンロード (maven central)
+    fso.DeleteFile("./tool/ant/*");
+
+    var mvnCentral = "https://repo1.maven.org/maven2"
+    downloader(mvnCentral + "/org/apache/ant/ant/1.10.15/ant-1.10.15.jar"
+        , "ant.jar", "./tool/ant/", "");
+    downloader(mvnCentral + "/org/apache/ant/ant-launcher/1.10.15/ant-launcher-1.10.15.jar"
+        , "ant-launcher.jar", "./tool/ant/", "");
+    downloader(mvnCentral + "/org/apache/maven/resolver/maven-resolver-ant-tasks/1.5.2/maven-resolver-ant-tasks-1.5.2-uber.jar"
+        , "maven-resolver-ant-tasks-1.5.2-uber.jar", "./tool/antlib", "");
+}
+
+function execute() {
+    if (logdelete.checked && fso.FileExists("./" + logfile.value)) {
+        output("ログファイルを削除します");
+        try {
+            fso.DeleteFile("./" + logfile.value);
+        } catch (e) {
+            output("ログファイルを削除できませんでした");
+            return;
+        }
+    }
+    var ret = wshShell.Run(launch(user.value, password.value, logfile.value));
+    output("tomcat起動シェルを実行");
+}
+
+function launch(user, password, logfile) {
+    var spacer = "";
+    for (var i = 0; i < 200; i++) { spacer += " "; }
+    spacer += "";
+    return "cmd /q /k title " + spacer + " & " + javaBin + "/java.exe -jar ./tool/" + cargo_launcher_jar + " " +
+        opt("-u", user) + opt("-p", password) + opt("-f", logfile)
+}
+
+function opt(key, value) {
+    return key + " " + value + " ";
+}
+
+function executeBuildApp() {
+    output("ビルドします");
+    wshShell.Run(isBuildDebug() + build("fullbuild") +
+        antArg("svn.user", user.value) +
+        antArg("svn.password", password.value));
+}
+
+function isBuildDebug() {
+    if (build_debug.checked) return "cmd /k "
+    return "";
+}
+
+function build(target) {
+    return javaBin + "/" + "java.exe -jar tool/ant/ant-launcher.jar -f etc/dev_build.xml " + target + " ";
+}
+
+function antArg(name, value) {
+    return "-D" + name + "=" + value + " ";
+}
+
+function antread() {
+    var options = document.getElementById("targetList").options;
+    var targetNames = {};
+    var xmldom = new ActiveXObject("Microsoft.XMLDOM");
+    xmldom.async = false;
+    antreadFrom(xmldom, targetNames, "etc/dev_build.xml");
+    antreadFrom(xmldom, targetNames, "etc/build.xml");
+    var targetArray = new Array();
+    for (key in targetNames) {
+        targetArray.push(key);
+    }
+    targetArray.sort();
+    for (i in targetArray) {
+        var name = targetArray[i];
+        options[i] = new Option(name, name);
+    }
+    xmldom = null;
+}
+
+function antreadFrom(xmldom, targetNames, buildxml) {
+    try {
+        xmldom.load(buildxml);
+        var targets = xmldom.getElementsByTagName("target");
+        for (var i = 0; i < targets.length; i++) {
+            targetNames[targets[i].getAttribute("name")] = targetNames;
+        }
+    } catch (e) {
+    }
+}
+
+function antrun() {
+    var targetName = document.getElementById("targetList").value;
+    output(targetName + "を実行します");
+
+    var wshShell = new ActiveXObject("WScript.Shell");
+    wshShell.Environment("Process")("http_proxy") = "http://" + user.value + ":" + password.value + "@proxy.pal.local:8080";
+    wshShell.Environment("Process")("https_proxy") = "http://" + user.value + ":" + password.value + "@proxy.pal.local:8080";
+    wshShell.Run("cmd /k " + build(targetName) +
+        antArg("svn.user", user.value) +
+        antArg("svn.password", password.value));
+}
+</script>
+</head>
+
+<body onload="installed()">
+<div class="content">
+    <h2>インストール</h2>
+    <p>
+    ユーザ名 :<input type="text" name="user" size="25">
+    <br>
+    パスワード :<input type="password" name="password" size="25">
+    </p>
+    <p>
+    <input type="button" value="ダウンロード＆インストール" name="button" onClick="download()">
+    </p>
+</div>
+
+<div class="content">
+    <h2>Tomcat起動</h2>
+    <p>
+    ログファイル:<input type="text" name="logfile" size="25">&nbsp;削除してから実行：<input type="checkbox" name="logdelete" value="on">
+    </p>
+    <p>
+    <input type="button" value="フルビルド" name="button" onClick="executeBuildApp()">
+    ビルド結果表示モード：<input type="checkbox" name="build_debug" value="on">
+    </p>
+    <p>
+    <input type="button" value="Tomcat起動" name="button" onClick="execute()">
+    </p>
+    <p>
+    <ul id="list"></ul>
+    </p>
+    <div>
+    <p>
+    <FIELDSET>
+    <LEGEND>antの実行</LEGEND>
+    <select id="targetList" style="width:100px;" /><input type="button" value="実行" name="ant" onClick="antrun()">
+    </FIELDSET>
+    </p>
+    </div>
+</div>
+</body>
+</html>
