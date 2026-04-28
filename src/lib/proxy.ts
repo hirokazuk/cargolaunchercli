@@ -1,4 +1,4 @@
-const DEFAULT_PROXY_HOST_PORT = "proxy.pal.local:8080";
+const DEFAULT_PROXY_HOST_PORT = "proxy.example.com:8080";
 
 /**
  * HTA と同様: http://user:password@host:port
