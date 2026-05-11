@@ -1,3 +1,4 @@
+import { BINARY_NAME } from "../const";
 import { unlink } from "node:fs/promises";
 import { join } from "node:path";
 import type { Credentials } from "../lib/credentials";
@@ -13,7 +14,7 @@ export async function runStart(
 
   const java = resolveJavaExecutable();
   if (!java.ok || !(await javaBinaryExists(java.javaPath))) {
-    console.error("Java が利用できません。cargo-launcher doctor を実行してください。");
+    console.error(`Java が利用できません。${BINARY_NAME} doctor を実行してください。`);
     return 1;
   }
 

@@ -1,4 +1,4 @@
 #! /bin/bash
 
-#このシェルに渡された引数を../dist/cargolaunchercliに渡す
-../dist/cargolaunchercli "$@"
+#このシェルに渡された引数を../dist/paldev_cargo_launcherに渡す
+../dist/paldev_cargo_launcher "$@"

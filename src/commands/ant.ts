@@ -1,3 +1,4 @@
+import { BINARY_NAME } from "../const";
 import type { Credentials } from "../lib/credentials";
 import { antLauncherJarPath, buildXmlPath, devBuildXmlPath } from "../lib/paths";
 import { listAntTargetNamesFromXml } from "../lib/xml-targets";
@@ -38,7 +39,7 @@ export async function runAntRun(
 ): Promise<number> {
   const java = resolveJavaExecutable();
   if (!java.ok || !(await javaBinaryExists(java.javaPath))) {
-    console.error("Java が利用できません。cargo-launcher doctor を実行してください。");
+    console.error(`Java が利用できません。${BINARY_NAME} doctor を実行してください。`);
     return 1;
   }
 

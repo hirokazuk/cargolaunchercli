@@ -4,13 +4,8 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "build": "bun build ./src/cli.ts --target=bun --outfile=dist/cargolauncher2",
-    "build:production": "bun build ./src/cli.ts --target=bun --outfile=dist/cli.js --production --minify",
-    "build:compile": "bun build ./src/cli.ts --compile --outfile=dist/cargo-launcher",
+    "build": "bun build ./src/cli.ts --target=bun --outfile=dist/paldev_cargo_launcher --env=inline --minify --sourcemap=inline",
     "clean": "rm -rf dist"
-  },
-  "bin": {
-    "cargo-launcher": "./src/cli.ts"
   },
   "devDependencies": {
     "@types/bun": "latest"

@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { BINARY_NAME } from "./const";
 import { parseArgs } from "node:util";
 import { createInterface } from "node:readline/promises";
 import { search } from "@inquirer/prompts";
@@ -28,10 +29,10 @@ function requireProxyAuthForApp(
 }
 
 function printHelp(): void {
-  console.log(`cargo-launcher — Tomcat11 ランチャー CLI
+  console.log(`${BINARY_NAME} — Tomcat11 ランチャー CLI
 
 Usage:
-  cargo-launcher [--cwd <dir>] [-h] <command> ...
+  ${BINARY_NAME} [--cwd <dir>] [-h] <command> ...
 
 Global:
   --cwd <dir>   作業ディレクトリ（既定はカレントディレクトリ）
@@ -46,24 +47,24 @@ Global:
 
 Commands（概要）:
   doctor ・・・ cargo_launcher JAR と Java の確認
-    Usage: cargo-launcher [--cwd <dir>] doctor
+    Usage: ${BINARY_NAME} [--cwd <dir>] doctor
 
   install ・・・ Ant ランタイムを Maven Central から取得（tool/ant, tool/antlib）
-    Usage: cargo-launcher [--cwd <dir>] [--proxy-url <url>] install
+    Usage: ${BINARY_NAME} [--cwd <dir>] [--proxy-url <url>] install
 
   start ・・・ cargo_launcher JAR でプロセス起動（フォアグラウンド）
-    Usage: cargo-launcher [--cwd <dir>] [--proxy-url <url>] start [--log-file <path>] [--delete-log]
+    Usage: ${BINARY_NAME} [--cwd <dir>] [--proxy-url <url>] start [--log-file <path>] [--delete-log]
       -f, --log-file <path>  ログ相対パス（HTA の「ログファイル」、省略可）
       --delete-log           起動前に該当ログファイルを削除（-f 指定時のみ有効）
 
   fullbuild ・・・ etc/dev_build.xml の fullbuild（ant run fullbuild と同じ）
-    Usage: cargo-launcher [--cwd <dir>] [--proxy-url <url>] fullbuild
+    Usage: ${BINARY_NAME} [--cwd <dir>] [--proxy-url <url>] fullbuild
 
   ant list ・・・ Ant の target 名を列挙（dev_build.xml + build.xml）
-    Usage: cargo-launcher [--cwd <dir>] ant list
+    Usage: ${BINARY_NAME} [--cwd <dir>] ant list
 
   ant run ・・・ 任意のAnt target を実行（プロキシ環境変数を設定）
-    Usage: cargo-launcher [--cwd <dir>] [--proxy-url <url>] ant run <target>
+    Usage: ${BINARY_NAME} [--cwd <dir>] [--proxy-url <url>] ant run <target>
 
 `);
 }

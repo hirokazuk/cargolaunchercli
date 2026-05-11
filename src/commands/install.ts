@@ -26,6 +26,16 @@ const ARTIFACTS: readonly {
 
 const UNIQUE_INSTALL_DIRS = [...new Set(ARTIFACTS.map((a) => a.dir))];
 
+/** `doctor` など: install-artifacts.toml に基づく配置先の一覧 */
+export function listExpectedInstallArtifacts(
+  projectRoot: string,
+): readonly { name: string; absPath: string }[] {
+  return ARTIFACTS.map((a) => ({
+    name: a.name,
+    absPath: join(projectRoot, a.dir, a.fileName),
+  }));
+}
+
 async function clearSubdir(projectRoot: string, subdirFromProjectRoot: string): Promise<void> {
   const dir = join(projectRoot, subdirFromProjectRoot);
   try {
