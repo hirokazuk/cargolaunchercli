@@ -1,5 +1,7 @@
 #!/usr/bin/env bun
 import { parseArgs } from "node:util";
+import { createInterface } from "node:readline/promises";
+import { search } from "@inquirer/prompts";
 import type { Credentials } from "./lib/credentials";
 import {
   resolveFetchProxyUrl,
@@ -10,7 +12,7 @@ import { resolveProjectRoot } from "./lib/paths";
 import { runDoctor } from "./commands/doctor";
 import { runInstall } from "./commands/install";
 import { runStart } from "./commands/start";
-import { runAntList, runAntRun } from "./commands/ant";
+import { getAntTargetNames, runAntList, runAntRun } from "./commands/ant";
 
 /** start / ant run / fullbuild 用。失敗時はメッセージを表示して null */
 function requireProxyAuthForApp(
@@ -88,6 +90,60 @@ function extraArgsError(rest: readonly string[]): boolean {
     return true;
   }
   return false;
+}
+
+async function promptSelectAntTarget(targets: readonly string[]): Promise<string> {
+  try {
+    if (process.stdin.isTTY) {
+      try {
+        const picked = await search({
+          message: "実行する Ant target（入力で絞り込み）",
+          pageSize: 12,
+          source: async (term) => {
+            const q = (term ?? "").toLowerCase();
+            const filtered = q ? targets.filter((t) => t.toLowerCase().includes(q)) : [...targets];
+            return filtered.map((value) => ({ name: value, value }));
+          },
+        });
+        if (typeof picked === "string" && targets.includes(picked)) {
+          return picked;
+        }
+      } catch {
+        // Fall back to simple numeric selection.
+      }
+    }
+
+    const rl = createInterface({ input: process.stdin, output: process.stdout });
+    try {
+      console.log("利用可能な Ant target:");
+      for (const [i, t] of targets.entries()) {
+        console.log(`  ${i + 1}) ${t}`);
+      }
+
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const answer = await rl.question(
+          `実行する target 番号を入力してください（Enterで1）: `,
+        );
+        const trimmed = answer.trim();
+        if (trimmed === "") {
+          return targets[0]!;
+        }
+        const idx = Number(trimmed);
+        if (Number.isInteger(idx) && idx >= 1 && idx <= targets.length) {
+          return targets[idx - 1]!;
+        }
+        console.log("番号が不正です。もう一度お願いします。");
+      }
+
+      console.log("回数を超えたため 1番目を選びます。");
+      return targets[0]!;
+    } finally {
+      rl.close();
+    }
+  } catch {
+    // If anything unexpected happens, fall back to the first target.
+    return targets[0]!;
+  }
 }
 
 async function main(): Promise<number> {
@@ -171,14 +227,29 @@ async function main(): Promise<number> {
         return await runAntList(projectRoot);
       }
       if (sub === "run") {
-        const target = tail[1];
-        if (!target) {
-          console.error("ant run <target> で target を指定してください");
-          return 1;
-        }
         if (extraArgsError(tail.slice(2))) {
           return 1;
         }
+
+        const targetArg = tail[1];
+        const targets = await getAntTargetNames(projectRoot);
+        if (targets.length === 0) {
+          console.error("Ant の target が見つかりません（dev_build.xml / build.xml を確認してください）");
+          return 1;
+        }
+
+        let target: string;
+        if (targetArg && targets.includes(targetArg)) {
+          target = targetArg;
+        } else {
+          if (!process.stdin.isTTY) {
+            console.error("ant run の target が未指定、または不正です（TTYではないため選択できません）。");
+            console.log(`利用可能: ${targets.join(", ")}`);
+            return 1;
+          }
+          target = await promptSelectAntTarget(targets);
+        }
+
         const auth = requireProxyAuthForApp(proxyExplicit, resolveProxyOpts);
         if (!auth) {
           return 1;

@@ -3,7 +3,7 @@ import { antLauncherJarPath, buildXmlPath, devBuildXmlPath } from "../lib/paths"
 import { listAntTargetNamesFromXml } from "../lib/xml-targets";
 import { javaBinaryExists, resolveJavaExecutable } from "../lib/java";
 
-export async function runAntList(projectRoot: string): Promise<number> {
+async function collectAntTargetNames(projectRoot: string): Promise<string[]> {
   const names = new Set<string>();
   for (const path of [devBuildXmlPath(projectRoot), buildXmlPath(projectRoot)]) {
     const f = Bun.file(path);
@@ -14,7 +14,15 @@ export async function runAntList(projectRoot: string): Promise<number> {
       }
     }
   }
-  const sorted = [...names].sort((a, b) => a.localeCompare(b));
+  return [...names].sort((a, b) => a.localeCompare(b));
+}
+
+export async function getAntTargetNames(projectRoot: string): Promise<string[]> {
+  return collectAntTargetNames(projectRoot);
+}
+
+export async function runAntList(projectRoot: string): Promise<number> {
+  const sorted = await collectAntTargetNames(projectRoot);
   for (const n of sorted) {
     console.log(n);
   }
