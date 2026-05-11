@@ -7,28 +7,16 @@ export function cargoLauncherJarFileName(): string {
   return `cargo_launcher-${CARGO_LAUNCHER_VERSION}.jar`;
 }
 
+export function cargoLauncherJarPath(projectRoot: string): string {
+  return resolve(projectRoot, "tool", cargoLauncherJarFileName());
+}
+
 export function resolveProjectRoot(cwdFlag: string | undefined): string {
   return cwdFlag ? resolve(cwdFlag) : process.cwd();
 }
 
-export function toolDir(projectRoot: string): string {
-  return resolve(projectRoot, "tool");
-}
-
-export function toolAntDir(projectRoot: string): string {
-  return resolve(projectRoot, "tool", "ant");
-}
-
-export function toolAntlibDir(projectRoot: string): string {
-  return resolve(projectRoot, "tool", "antlib");
-}
-
-export function cargoLauncherJarPath(projectRoot: string): string {
-  return resolve(toolDir(projectRoot), cargoLauncherJarFileName());
-}
-
 export function antLauncherJarPath(projectRoot: string): string {
-  return resolve(toolAntDir(projectRoot), "ant-launcher.jar");
+  return resolve(projectRoot, "tool", "ant", "ant-launcher.jar");
 }
 
 export function devBuildXmlPath(projectRoot: string): string {

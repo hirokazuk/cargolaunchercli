@@ -4,7 +4,9 @@ export type InstallArtifactsToml = {
   readonly mvn_central: string;
   readonly artifacts: ReadonlyArray<{
     readonly artifact_path: string;
-    /** `tool/` 直下の相対ディレクトリ名（例: ant, antlib） */
+    /** アーティファクトの識別名（ログ表示などに使用） */
+    readonly name: string;
+    /** `projectRoot` から見た配置先（例: tool/ant, tool/antlib） */
     readonly dir: string;
     readonly file_name: string;
   }>;
