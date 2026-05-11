@@ -30,7 +30,7 @@ Global:
   --cwd <dir>   作業ディレクトリ（既定はカレントディレクトリ）
   -h, --help    このヘルプ
   --proxy-url <url>  規定値は $HTTPS_PROXY → $HTTP_PROXY の順で解決。
-    install              上記 URL を fetch の proxy に使用（認証なしでも可）。
+    install              上記で解決した URL を fetch の proxy に使用（認証なしでも可）。
     start / fullbuild / ant run   解決した URL に user:password@ が含まれること（Java / Ant SVN 用に取り出す）。
     fullbuild / ant run           さらに http_proxy / https_proxy に同じ URL を設定。
     例: http://ユーザー名:パスワード@proxy.example.com:8080
@@ -43,9 +43,9 @@ Commands（概要）:
     Usage: cargo-launcher [--cwd <dir>] [--proxy-url <url>] install
 
   start ・・・ cargo_launcher JAR でプロセス起動（フォアグラウンド）
-    Usage: cargo-launcher [--cwd <dir>] [--proxy-url <url>] start -f <path> [--delete-log]
-      -f, --log-file <path>  ログ相対パス（HTA の「ログファイル」）（必須）
-      --delete-log           起動前に該当ログファイルを削除
+    Usage: cargo-launcher [--cwd <dir>] [--proxy-url <url>] start [--log-file <path>] [--delete-log]
+      -f, --log-file <path>  ログ相対パス（HTA の「ログファイル」、省略可）
+      --delete-log           起動前に該当ログファイルを削除（-f 指定時のみ有効）
 
   fullbuild ・・・ etc/dev_build.xml の fullbuild（ant run fullbuild と同じ）
     Usage: cargo-launcher [--cwd <dir>] [--proxy-url <url>] fullbuild
@@ -125,18 +125,13 @@ async function main(): Promise<number> {
       if (extraArgsError(tail)) {
         return 1;
       }
-      const logFile = optString(values["log-file"]);
-      if (!logFile) {
-        console.error("start には -f / --log-file が必要です");
-        return 1;
-      }
       {
         const auth = requireProxyAuthForApp(proxyExplicit);
         if (!auth) {
           return 1;
         }
         return await runStart(projectRoot, {
-          logFile,
+          logFile: optString(values["log-file"]),
           deleteLog: values["delete-log"] === true,
           cred: auth.cred,
         });

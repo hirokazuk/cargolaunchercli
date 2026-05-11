@@ -6,9 +6,10 @@ import { javaBinaryExists, resolveJavaExecutable } from "../lib/java";
 
 export async function runStart(
   projectRoot: string,
-  options: { logFile: string; deleteLog: boolean; cred: Credentials },
+  options: { logFile?: string; deleteLog: boolean; cred: Credentials },
 ): Promise<number> {
   const { cred } = options;
+  const logRel = options.logFile?.trim() ?? "";
 
   const java = resolveJavaExecutable();
   if (!java.ok || !(await javaBinaryExists(java.javaPath))) {
@@ -22,8 +23,8 @@ export async function runStart(
     return 1;
   }
 
-  const logPath = join(projectRoot, options.logFile);
-  if (options.deleteLog && (await Bun.file(logPath).exists())) {
+  const logPath = logRel ? join(projectRoot, logRel) : "";
+  if (options.deleteLog && logRel && logPath && (await Bun.file(logPath).exists())) {
     console.log("ログファイルを削除します");
     try {
       await unlink(logPath);
@@ -43,7 +44,7 @@ export async function runStart(
       "-p",
       cred.password,
       "-f",
-      options.logFile,
+      logRel,
     ],
     {
       cwd: projectRoot,
