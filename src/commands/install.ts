@@ -1,19 +1,16 @@
 import { mkdir, readdir, unlink } from "node:fs/promises";
 import { join } from "node:path";
-import { toolAntDir, toolAntlibDir } from "../lib/paths";
+import { toolDir } from "../lib/paths";
 import installArtifactsToml from "./install-artifacts.toml";
-import type { ArtifactDirToml, InstallArtifactsToml } from "./install-artifacts.shared";
+import type { InstallArtifactsToml } from "./install-artifacts.shared";
 
 /** Bun の `*.toml` が `any` に落ちる場合でも、共有スキーマで 1 箇所に型を固定 */
 const installConfig: InstallArtifactsToml = installArtifactsToml;
 
 const mvnBase = installConfig.mvn_central.replace(/\/+$/, "");
 
-const ARTIFACTS: readonly { url: string; dir: ArtifactDirToml; fileName: string }[] =
+const ARTIFACTS: readonly { url: string; dir: string; fileName: string }[] =
   installConfig.artifacts.map((a) => {
-    if (a.dir !== "ant" && a.dir !== "antlib") {
-      throw new Error(`install-artifacts.toml: invalid dir "${String(a.dir)}"`);
-    }
     const rel = a.artifact_path.replace(/^\/+/, "");
     return {
       url: `${mvnBase}/${rel}`,
@@ -22,8 +19,10 @@ const ARTIFACTS: readonly { url: string; dir: ArtifactDirToml; fileName: string 
     };
   });
 
-async function clearAntDir(projectRoot: string): Promise<void> {
-  const dir = toolAntDir(projectRoot);
+const UNIQUE_INSTALL_DIRS = [...new Set(ARTIFACTS.map((a) => a.dir))];
+
+async function clearToolSubdir(projectRoot: string, subdir: string): Promise<void> {
+  const dir = join(toolDir(projectRoot), subdir);
   try {
     const names = await readdir(dir);
     await Promise.all(names.map((name) => unlink(join(dir, name))));
@@ -42,9 +41,8 @@ async function ensureDir(path: string): Promise<void> {
  * @param fetchProxy CLI で resolveFetchProxyUrl した結果（未設定なら undefined）
  */
 export async function runInstall(projectRoot: string, fetchProxy?: string): Promise<number> {
-  await clearAntDir(projectRoot);
-  await ensureDir(toolAntDir(projectRoot));
-  await ensureDir(toolAntlibDir(projectRoot));
+  await Promise.all(UNIQUE_INSTALL_DIRS.map((d) => clearToolSubdir(projectRoot, d)));
+  await Promise.all(UNIQUE_INSTALL_DIRS.map((d) => ensureDir(join(toolDir(projectRoot), d))));
 
   let fail = false;
   for (const a of ARTIFACTS) {
@@ -52,7 +50,7 @@ export async function runInstall(projectRoot: string, fetchProxy?: string): Prom
       console.log(`${a.fileName} は前ファイルの DL 失敗のためキャンセルされました。`);
       continue;
     }
-    const base = a.dir === "ant" ? toolAntDir(projectRoot) : toolAntlibDir(projectRoot);
+    const base = join(toolDir(projectRoot), a.dir);
     const dest = join(base, a.fileName);
     try {
       const res = await fetch(a.url, {

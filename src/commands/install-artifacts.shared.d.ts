@@ -1,12 +1,11 @@
 /** `install-artifacts.toml` のスキーマ + default import の型 */
 
-export type ArtifactDirToml = "ant" | "antlib";
-
 export type InstallArtifactsToml = {
   readonly mvn_central: string;
   readonly artifacts: ReadonlyArray<{
     readonly artifact_path: string;
-    readonly dir: ArtifactDirToml;
+    /** `tool/` 直下の相対ディレクトリ名（例: ant, antlib） */
+    readonly dir: string;
     readonly file_name: string;
   }>;
 };

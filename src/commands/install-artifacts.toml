@@ -1,16 +1,19 @@
 mvn_central = "https://repo1.maven.org/maven2"
 
 [[artifacts]]
+name = "ant"
 artifact_path = "org/apache/ant/ant/1.10.15/ant-1.10.15.jar"
 dir = "ant"
 file_name = "ant.jar"
 
 [[artifacts]]
+name = "ant-launcher"
 artifact_path = "org/apache/ant/ant-launcher/1.10.15/ant-launcher-1.10.15.jar"
 dir = "ant"
 file_name = "ant-launcher.jar"
 
 [[artifacts]]
+name = "maven-resolver-ant-tasks"
 artifact_path = "org/apache/maven/resolver/maven-resolver-ant-tasks/1.5.2/maven-resolver-ant-tasks-1.5.2-uber.jar"
 dir = "antlib"
 file_name = "maven-resolver-ant-tasks-1.5.2-uber.jar"
