@@ -1,7 +1,11 @@
 #!/usr/bin/env bun
 import { parseArgs } from "node:util";
 import type { Credentials } from "./lib/credentials";
-import { resolveFetchProxyUrl, resolveProxyCredentialsForApp } from "./lib/proxy";
+import {
+  resolveFetchProxyUrl,
+  resolveProxyCredentialsForApp,
+  type ResolveProxyCredentialsOptions,
+} from "./lib/proxy";
 import { resolveProjectRoot } from "./lib/paths";
 import { runDoctor } from "./commands/doctor";
 import { runInstall } from "./commands/install";
@@ -10,9 +14,10 @@ import { runAntList, runAntRun } from "./commands/ant";
 
 /** start / ant run / fullbuild 用。失敗時はメッセージを表示して null */
 function requireProxyAuthForApp(
-  explicit?: string,
+  explicit: string | undefined,
+  resolveOpts: ResolveProxyCredentialsOptions,
 ): { proxyUrl: string; cred: Credentials } | null {
-  const r = resolveProxyCredentialsForApp(explicit);
+  const r = resolveProxyCredentialsForApp(explicit, resolveOpts);
   if (!r.ok) {
     console.error(r.message);
     return null;
@@ -29,6 +34,8 @@ Usage:
 Global:
   --cwd <dir>   作業ディレクトリ（既定はカレントディレクトリ）
   -h, --help    このヘルプ
+  --allow-no-proxy           プロキシ URL が無いときでも start / fullbuild / ant run を続行（認証情報も空）
+  --allow-no-credentials     プロキシ URL に user:password@ が無いときでも上記コマンドを続行
   --proxy-url <url>  規定値は $HTTPS_PROXY → $HTTP_PROXY の順で解決。
     install              上記で解決した URL を fetch の proxy に使用（認証なしでも可）。
     start / fullbuild / ant run   解決した URL に user:password@ が含まれること（Java / Ant SVN 用に取り出す）。
@@ -66,6 +73,8 @@ const CLI_OPTIONS = {
   "log-file": { type: "string" as const, short: "f" as const },
   "proxy-url": { type: "string" as const },
   "delete-log": { type: "boolean" as const },
+  "allow-no-proxy": { type: "boolean" as const },
+  "allow-no-credentials": { type: "boolean" as const },
 };
 
 /** Node の parseArgs が返す values を string に絞る */
@@ -107,6 +116,10 @@ async function main(): Promise<number> {
   const cmd = positionals[0];
   const tail = positionals.slice(1);
   const proxyExplicit = optString(values["proxy-url"]);
+  const resolveProxyOpts: ResolveProxyCredentialsOptions = {
+    allowNoProxy: values["allow-no-proxy"] === true,
+    allowNoCredentials: values["allow-no-credentials"] === true,
+  };
 
   switch (cmd) {
     case "doctor":
@@ -126,7 +139,7 @@ async function main(): Promise<number> {
         return 1;
       }
       {
-        const auth = requireProxyAuthForApp(proxyExplicit);
+        const auth = requireProxyAuthForApp(proxyExplicit, resolveProxyOpts);
         if (!auth) {
           return 1;
         }
@@ -142,7 +155,7 @@ async function main(): Promise<number> {
         return 1;
       }
       {
-        const auth = requireProxyAuthForApp(proxyExplicit);
+        const auth = requireProxyAuthForApp(proxyExplicit, resolveProxyOpts);
         if (!auth) {
           return 1;
         }
@@ -166,7 +179,7 @@ async function main(): Promise<number> {
         if (extraArgsError(tail.slice(2))) {
           return 1;
         }
-        const auth = requireProxyAuthForApp(proxyExplicit);
+        const auth = requireProxyAuthForApp(proxyExplicit, resolveProxyOpts);
         if (!auth) {
           return 1;
         }

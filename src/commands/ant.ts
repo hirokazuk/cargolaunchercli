@@ -49,8 +49,10 @@ export async function runAntRun(
   console.log(`${target} を実行します`);
 
   const env: Record<string, string | undefined> = { ...process.env };
-  env.http_proxy = proxyUrl;
-  env.https_proxy = proxyUrl;
+  if (proxyUrl) {
+    env.http_proxy = proxyUrl;
+    env.https_proxy = proxyUrl;
+  }
 
   const proc = Bun.spawn(
     [
