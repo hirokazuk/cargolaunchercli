@@ -1,10 +1,21 @@
 #!/usr/bin/env bun
 import { parseArgs } from "node:util";
+import { resolveFetchProxyUrl, resolveProxyCredentialsForApp } from "./lib/proxy";
 import { resolveProjectRoot } from "./lib/paths";
 import { runDoctor } from "./commands/doctor";
 import { runInstall } from "./commands/install";
 import { runStart } from "./commands/start";
-import { runAntList, runAntRun } from "./commands/ant";
+import { runAntList, runAntRun, type AntRunProxyAuth } from "./commands/ant";
+
+/** start / ant run / fullbuild 用。失敗時はメッセージを表示して null */
+function requireProxyAuthForApp(explicit?: string): AntRunProxyAuth | null {
+  const r = resolveProxyCredentialsForApp(explicit);
+  if (!r.ok) {
+    console.error(r.message);
+    return null;
+  }
+  return { proxyUrl: r.proxyUrl, cred: r.cred };
+}
 
 function printHelp(): void {
   console.log(`cargo-launcher — Tomcat11 ランチャー CLI
@@ -89,7 +100,7 @@ async function main(): Promise<number> {
     return values.help === true ? 0 : 1;
   }
 
-  const root = resolveProjectRoot(optString(values.cwd));
+  const projectRoot = resolveProjectRoot(optString(values.cwd));
   const cmd = positionals[0];
   const tail = positionals.slice(1);
   const proxyExplicit = optString(values["proxy-url"]);
@@ -99,13 +110,13 @@ async function main(): Promise<number> {
       if (extraArgsError(tail)) {
         return 1;
       }
-      return await runDoctor(root);
+      return await runDoctor(projectRoot);
 
     case "install":
       if (extraArgsError(tail)) {
         return 1;
       }
-      return await runInstall(root, proxyExplicit);
+      return await runInstall(projectRoot, resolveFetchProxyUrl(proxyExplicit));
 
     case "start":
       if (extraArgsError(tail)) {
@@ -116,17 +127,29 @@ async function main(): Promise<number> {
         console.error("start には -f / --log-file が必要です");
         return 1;
       }
-      return await runStart(root, {
-        logFile,
-        deleteLog: values["delete-log"] === true,
-        proxyExplicit,
-      });
+      {
+        const auth = requireProxyAuthForApp(proxyExplicit);
+        if (!auth) {
+          return 1;
+        }
+        return await runStart(projectRoot, {
+          logFile,
+          deleteLog: values["delete-log"] === true,
+          cred: auth.cred,
+        });
+      }
 
     case "fullbuild":
       if (extraArgsError(tail)) {
         return 1;
       }
-      return await runAntRun(root, "fullbuild", proxyExplicit);
+      {
+        const auth = requireProxyAuthForApp(proxyExplicit);
+        if (!auth) {
+          return 1;
+        }
+        return await runAntRun(projectRoot, "fullbuild", auth);
+      }
 
     case "ant": {
       const sub = tail[0];
@@ -134,7 +157,7 @@ async function main(): Promise<number> {
         if (extraArgsError(tail.slice(1))) {
           return 1;
         }
-        return await runAntList(root);
+        return await runAntList(projectRoot);
       }
       if (sub === "run") {
         const target = tail[1];
@@ -145,7 +168,11 @@ async function main(): Promise<number> {
         if (extraArgsError(tail.slice(2))) {
           return 1;
         }
-        return await runAntRun(root, target, proxyExplicit);
+        const auth = requireProxyAuthForApp(proxyExplicit);
+        if (!auth) {
+          return 1;
+        }
+        return await runAntRun(projectRoot, target, auth);
       }
       console.error('ant のサブコマンドは "list" または "run <target>" です');
       return 1;

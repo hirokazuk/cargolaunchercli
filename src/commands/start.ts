@@ -1,19 +1,14 @@
 import { unlink } from "node:fs/promises";
 import { join } from "node:path";
+import type { Credentials } from "../lib/credentials";
 import { cargoLauncherJarPath } from "../lib/paths";
-import { resolveProxyCredentialsForApp } from "../lib/proxy";
 import { javaBinaryExists, resolveJavaExecutable } from "../lib/java";
 
 export async function runStart(
-  root: string,
-  options: { logFile: string; deleteLog: boolean; proxyExplicit?: string },
+  projectRoot: string,
+  options: { logFile: string; deleteLog: boolean; cred: Credentials },
 ): Promise<number> {
-  const resolved = resolveProxyCredentialsForApp(options.proxyExplicit);
-  if (!resolved.ok) {
-    console.error(resolved.message);
-    return 1;
-  }
-  const { cred } = resolved;
+  const { cred } = options;
 
   const java = resolveJavaExecutable();
   if (!java.ok || !(await javaBinaryExists(java.javaPath))) {
@@ -21,13 +16,13 @@ export async function runStart(
     return 1;
   }
 
-  const jar = cargoLauncherJarPath(root);
+  const jar = cargoLauncherJarPath(projectRoot);
   if (!(await Bun.file(jar).exists())) {
     console.error(`cargo_launcher JAR が見つかりません: ${jar}`);
     return 1;
   }
 
-  const logPath = join(root, options.logFile);
+  const logPath = join(projectRoot, options.logFile);
   if (options.deleteLog && (await Bun.file(logPath).exists())) {
     console.log("ログファイルを削除します");
     try {
@@ -51,7 +46,7 @@ export async function runStart(
       options.logFile,
     ],
     {
-      cwd: root,
+      cwd: projectRoot,
       stdin: "inherit",
       stdout: "inherit",
       stderr: "inherit",

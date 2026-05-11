@@ -11,30 +11,30 @@ export function resolveProjectRoot(cwdFlag: string | undefined): string {
   return cwdFlag ? resolve(cwdFlag) : process.cwd();
 }
 
-export function toolDir(root: string): string {
-  return resolve(root, "tool");
+export function toolDir(projectRoot: string): string {
+  return resolve(projectRoot, "tool");
 }
 
-export function toolAntDir(root: string): string {
-  return resolve(root, "tool", "ant");
+export function toolAntDir(projectRoot: string): string {
+  return resolve(projectRoot, "tool", "ant");
 }
 
-export function toolAntlibDir(root: string): string {
-  return resolve(root, "tool", "antlib");
+export function toolAntlibDir(projectRoot: string): string {
+  return resolve(projectRoot, "tool", "antlib");
 }
 
-export function cargoLauncherJarPath(root: string): string {
-  return resolve(toolDir(root), cargoLauncherJarFileName());
+export function cargoLauncherJarPath(projectRoot: string): string {
+  return resolve(toolDir(projectRoot), cargoLauncherJarFileName());
 }
 
-export function antLauncherJarPath(root: string): string {
-  return resolve(toolAntDir(root), "ant-launcher.jar");
+export function antLauncherJarPath(projectRoot: string): string {
+  return resolve(toolAntDir(projectRoot), "ant-launcher.jar");
 }
 
-export function devBuildXmlPath(root: string): string {
-  return resolve(root, "etc", "dev_build.xml");
+export function devBuildXmlPath(projectRoot: string): string {
+  return resolve(projectRoot, "etc", "dev_build.xml");
 }
 
-export function buildXmlPath(root: string): string {
-  return resolve(root, "etc", "build.xml");
+export function buildXmlPath(projectRoot: string): string {
+  return resolve(projectRoot, "etc", "build.xml");
 }

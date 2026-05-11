@@ -1,6 +1,5 @@
 import { mkdir, readdir, unlink } from "node:fs/promises";
 import { join } from "node:path";
-import { resolveFetchProxyUrl } from "../lib/proxy";
 import { toolAntDir, toolAntlibDir } from "../lib/paths";
 import installArtifactsToml from "./install-artifacts.toml";
 import type { ArtifactDirToml, InstallArtifactsToml } from "./install-artifacts.shared";
@@ -23,8 +22,8 @@ const ARTIFACTS: readonly { url: string; dir: ArtifactDirToml; fileName: string 
     };
   });
 
-async function clearAntDir(root: string): Promise<void> {
-  const dir = toolAntDir(root);
+async function clearAntDir(projectRoot: string): Promise<void> {
+  const dir = toolAntDir(projectRoot);
   try {
     const names = await readdir(dir);
     await Promise.all(names.map((name) => unlink(join(dir, name))));
@@ -39,13 +38,13 @@ async function ensureDir(path: string): Promise<void> {
 
 /**
  * HTA の download(): プロキシ経由 GET、先が失敗したら以降スキップ
+ * @param projectRoot tool/ / etc/ などの基点ディレクトリ
+ * @param fetchProxy CLI で resolveFetchProxyUrl した結果（未設定なら undefined）
  */
-export async function runInstall(root: string, proxyUrl?: string): Promise<number> {
-  await clearAntDir(root);
-  await ensureDir(toolAntDir(root));
-  await ensureDir(toolAntlibDir(root));
-
-  const proxy = resolveFetchProxyUrl(proxyUrl);
+export async function runInstall(projectRoot: string, fetchProxy?: string): Promise<number> {
+  await clearAntDir(projectRoot);
+  await ensureDir(toolAntDir(projectRoot));
+  await ensureDir(toolAntlibDir(projectRoot));
 
   let fail = false;
   for (const a of ARTIFACTS) {
@@ -53,11 +52,11 @@ export async function runInstall(root: string, proxyUrl?: string): Promise<numbe
       console.log(`${a.fileName} は前ファイルの DL 失敗のためキャンセルされました。`);
       continue;
     }
-    const base = a.dir === "ant" ? toolAntDir(root) : toolAntlibDir(root);
+    const base = a.dir === "ant" ? toolAntDir(projectRoot) : toolAntlibDir(projectRoot);
     const dest = join(base, a.fileName);
     try {
       const res = await fetch(a.url, {
-        ...(proxy ? { proxy } : {}),
+        ...(fetchProxy ? { proxy: fetchProxy } : {}),
         redirect: "follow",
       });
       if (!res.ok) {

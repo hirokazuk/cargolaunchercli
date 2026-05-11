@@ -1,11 +1,11 @@
+import type { Credentials } from "../lib/credentials";
 import { antLauncherJarPath, buildXmlPath, devBuildXmlPath } from "../lib/paths";
-import { resolveProxyCredentialsForApp } from "../lib/proxy";
 import { listAntTargetNamesFromXml } from "../lib/xml-targets";
 import { javaBinaryExists, resolveJavaExecutable } from "../lib/java";
 
-export async function runAntList(root: string): Promise<number> {
+export async function runAntList(projectRoot: string): Promise<number> {
   const names = new Set<string>();
-  for (const path of [devBuildXmlPath(root), buildXmlPath(root)]) {
+  for (const path of [devBuildXmlPath(projectRoot), buildXmlPath(projectRoot)]) {
     const f = Bun.file(path);
     if (await f.exists()) {
       const text = await f.text();
@@ -21,18 +21,16 @@ export async function runAntList(root: string): Promise<number> {
   return 0;
 }
 
+/** CLI で resolveProxyCredentialsForApp 済みのプロキシ認証 */
+export type AntRunProxyAuth = { proxyUrl: string; cred: Credentials };
+
 /** HTA の antrun() — dev_build.xml + プロキシ環境変数 + svn プロパティ */
 export async function runAntRun(
-  root: string,
+  projectRoot: string,
   target: string,
-  proxyExplicit?: string,
+  proxyAuth: AntRunProxyAuth,
 ): Promise<number> {
-  const resolved = resolveProxyCredentialsForApp(proxyExplicit);
-  if (!resolved.ok) {
-    console.error(resolved.message);
-    return 1;
-  }
-  const { cred, proxyUrl } = resolved;
+  const { cred, proxyUrl } = proxyAuth;
 
   const java = resolveJavaExecutable();
   if (!java.ok || !(await javaBinaryExists(java.javaPath))) {
@@ -40,13 +38,13 @@ export async function runAntRun(
     return 1;
   }
 
-  const launcher = antLauncherJarPath(root);
+  const launcher = antLauncherJarPath(projectRoot);
   if (!(await Bun.file(launcher).exists())) {
     console.error(`ant-launcher.jar が見つかりません: ${launcher}`);
     return 1;
   }
 
-  const buildFile = devBuildXmlPath(root);
+  const buildFile = devBuildXmlPath(projectRoot);
   if (!(await Bun.file(buildFile).exists())) {
     console.error(`build ファイルが見つかりません: ${buildFile}`);
     return 1;
@@ -70,7 +68,7 @@ export async function runAntRun(
       `-Dsvn.password=${cred.password}`,
     ],
     {
-      cwd: root,
+      cwd: projectRoot,
       stdin: "inherit",
       stdout: "inherit",
       stderr: "inherit",

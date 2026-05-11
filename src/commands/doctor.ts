@@ -1,8 +1,8 @@
 import { cargoLauncherJarFileName, cargoLauncherJarPath } from "../lib/paths";
 import { javaBinaryExists, resolveJavaExecutable } from "../lib/java";
 
-export async function runDoctor(root: string): Promise<number> {
-  const jarPath = cargoLauncherJarPath(root);
+export async function runDoctor(projectRoot: string): Promise<number> {
+  const jarPath = cargoLauncherJarPath(projectRoot);
   const jarName = cargoLauncherJarFileName();
   const jarOk = await Bun.file(jarPath).exists();
   console.log(jarOk ? `${jarName} はインストール済み (${jarPath})` : `${jarName} は未配置 (${jarPath})`);
