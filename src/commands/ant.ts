@@ -1,6 +1,5 @@
-import type { Credentials } from "../lib/credentials";
 import { antLauncherJarPath, buildXmlPath, devBuildXmlPath } from "../lib/paths";
-import { resolveFetchProxyUrl } from "../lib/proxy";
+import { resolveProxyCredentialsForApp } from "../lib/proxy";
 import { listAntTargetNamesFromXml } from "../lib/xml-targets";
 import { javaBinaryExists, resolveJavaExecutable } from "../lib/java";
 
@@ -25,14 +24,15 @@ export async function runAntList(root: string): Promise<number> {
 /** HTA の antrun() — dev_build.xml + プロキシ環境変数 + svn プロパティ */
 export async function runAntRun(
   root: string,
-  cred: Credentials,
   target: string,
-  proxyUrl?: string,
+  proxyExplicit?: string,
 ): Promise<number> {
-  if (!cred.password) {
-    console.error("パスワードが設定されていません (-p または CARGO_LAUNCHER_PASSWORD)");
+  const resolved = resolveProxyCredentialsForApp(proxyExplicit);
+  if (!resolved.ok) {
+    console.error(resolved.message);
     return 1;
   }
+  const { cred, proxyUrl } = resolved;
 
   const java = resolveJavaExecutable();
   if (!java.ok || !(await javaBinaryExists(java.javaPath))) {
@@ -54,12 +54,9 @@ export async function runAntRun(
 
   console.log(`${target} を実行します`);
 
-  const proxy = resolveFetchProxyUrl(proxyUrl);
   const env: Record<string, string | undefined> = { ...process.env };
-  if (proxy) {
-    env.http_proxy = proxy;
-    env.https_proxy = proxy;
-  }
+  env.http_proxy = proxyUrl;
+  env.https_proxy = proxyUrl;
 
   const proc = Bun.spawn(
     [

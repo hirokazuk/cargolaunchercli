@@ -1,44 +1,47 @@
 #!/usr/bin/env bun
 import { parseArgs } from "node:util";
-import { resolveCredentials } from "./lib/credentials";
 import { resolveProjectRoot } from "./lib/paths";
 import { runDoctor } from "./commands/doctor";
 import { runInstall } from "./commands/install";
 import { runStart } from "./commands/start";
-import { runBuildFull } from "./commands/build";
 import { runAntList, runAntRun } from "./commands/ant";
 
 function printHelp(): void {
   console.log(`cargo-launcher — Tomcat11 ランチャー CLI
 
 Usage:
-  cargo-launcher [--cwd <dir>] <command> ...
+  cargo-launcher [--cwd <dir>] [-h] <command> ...
 
 Global:
   --cwd <dir>   作業ディレクトリ（既定はカレントディレクトリ）
   -h, --help    このヘルプ
+  --proxy-url <url>  規定値は $HTTPS_PROXY → $HTTP_PROXY の順で解決。
+    install              上記 URL を fetch の proxy に使用（認証なしでも可）。
+    start / fullbuild / ant run   解決した URL に user:password@ が含まれること（Java / Ant SVN 用に取り出す）。
+    fullbuild / ant run           さらに http_proxy / https_proxy に同じ URL を設定。
+    例: http://ユーザー名:パスワード@proxy.example.com:8080
 
-Commands:
-  doctor              cargo_launcher JAR と Java の確認
-  install             Ant ランタイムを Maven Central から取得（tool/ant, tool/antlib）
-  start               cargo_launcher JAR でプロセス起動（フォアグラウンド）
-  build full          etc/dev_build.xml の fullbuild
-  ant list            Ant の target 名を列挙（dev_build.xml + build.xml）
-  ant run <target>    任意 target を実行（プロキシ環境変数を設定）
+Commands（概要）:
+  doctor ・・・ cargo_launcher JAR と Java の確認
+    Usage: cargo-launcher [--cwd <dir>] doctor
 
-共通オプション（認証）:
-  -u, --user             ユーザー名（既定: $CARGO_LAUNCHER_USER / $USER / $USERNAME）
-  -p, --password         パスワード（既定: $CARGO_LAUNCHER_PASSWORD）
+  install ・・・ Ant ランタイムを Maven Central から取得（tool/ant, tool/antlib）
+    Usage: cargo-launcher [--cwd <dir>] [--proxy-url <url>] install
 
-install 追加:
-  --proxy-url <url>      fetch のプロキシ（未指定時は $HTTPS_PROXY、なければ $HTTP_PROXY）
+  start ・・・ cargo_launcher JAR でプロセス起動（フォアグラウンド）
+    Usage: cargo-launcher [--cwd <dir>] [--proxy-url <url>] start -f <path> [--delete-log]
+      -f, --log-file <path>  ログ相対パス（HTA の「ログファイル」）（必須）
+      --delete-log           起動前に該当ログファイルを削除
 
-start 追加:
-  -f, --log-file <path>  ログ相対パス（HTA の「ログファイル」）
-  --delete-log           起動前に該当ログファイルを削除
+  fullbuild ・・・ etc/dev_build.xml の fullbuild（ant run fullbuild と同じ）
+    Usage: cargo-launcher [--cwd <dir>] [--proxy-url <url>] fullbuild
 
-ant run 追加:
-  --proxy-url <url>      http_proxy / https_proxy の上書き（未指定時は $HTTPS_PROXY、なければ $HTTP_PROXY）
+  ant list ・・・ Ant の target 名を列挙（dev_build.xml + build.xml）
+    Usage: cargo-launcher [--cwd <dir>] ant list
+
+  ant run ・・・ 任意のAnt target を実行（プロキシ環境変数を設定）
+    Usage: cargo-launcher [--cwd <dir>] [--proxy-url <url>] ant run <target>
+
 `);
 }
 
@@ -46,8 +49,6 @@ ant run 追加:
 const CLI_OPTIONS = {
   cwd: { type: "string" as const },
   help: { type: "boolean" as const, short: "h" as const },
-  user: { type: "string" as const, short: "u" as const },
-  password: { type: "string" as const, short: "p" as const },
   "log-file": { type: "string" as const, short: "f" as const },
   "proxy-url": { type: "string" as const },
   "delete-log": { type: "boolean" as const },
@@ -91,11 +92,7 @@ async function main(): Promise<number> {
   const root = resolveProjectRoot(optString(values.cwd));
   const cmd = positionals[0];
   const tail = positionals.slice(1);
-
-  const cred = resolveCredentials({
-    user: optString(values.user),
-    password: optString(values.password),
-  });
+  const proxyExplicit = optString(values["proxy-url"]);
 
   switch (cmd) {
     case "doctor":
@@ -108,7 +105,7 @@ async function main(): Promise<number> {
       if (extraArgsError(tail)) {
         return 1;
       }
-      return await runInstall(root, optString(values["proxy-url"]));
+      return await runInstall(root, proxyExplicit);
 
     case "start":
       if (extraArgsError(tail)) {
@@ -119,20 +116,17 @@ async function main(): Promise<number> {
         console.error("start には -f / --log-file が必要です");
         return 1;
       }
-      return await runStart(root, cred, {
+      return await runStart(root, {
         logFile,
         deleteLog: values["delete-log"] === true,
+        proxyExplicit,
       });
 
-    case "build":
-      if (tail[0] !== "full") {
-        console.error('サブコマンドは "build full" のみ対応です');
+    case "fullbuild":
+      if (extraArgsError(tail)) {
         return 1;
       }
-      if (extraArgsError(tail.slice(1))) {
-        return 1;
-      }
-      return await runBuildFull(root, cred);
+      return await runAntRun(root, "fullbuild", proxyExplicit);
 
     case "ant": {
       const sub = tail[0];
@@ -151,7 +145,7 @@ async function main(): Promise<number> {
         if (extraArgsError(tail.slice(2))) {
           return 1;
         }
-        return await runAntRun(root, cred, target, optString(values["proxy-url"]));
+        return await runAntRun(root, target, proxyExplicit);
       }
       console.error('ant のサブコマンドは "list" または "run <target>" です');
       return 1;

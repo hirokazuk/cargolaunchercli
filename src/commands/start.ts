@@ -1,18 +1,19 @@
 import { unlink } from "node:fs/promises";
 import { join } from "node:path";
-import type { Credentials } from "../lib/credentials";
 import { cargoLauncherJarPath } from "../lib/paths";
+import { resolveProxyCredentialsForApp } from "../lib/proxy";
 import { javaBinaryExists, resolveJavaExecutable } from "../lib/java";
 
 export async function runStart(
   root: string,
-  cred: Credentials,
-  options: { logFile: string; deleteLog: boolean },
+  options: { logFile: string; deleteLog: boolean; proxyExplicit?: string },
 ): Promise<number> {
-  if (!cred.password) {
-    console.error("パスワードが設定されていません (-p または CARGO_LAUNCHER_PASSWORD)");
+  const resolved = resolveProxyCredentialsForApp(options.proxyExplicit);
+  if (!resolved.ok) {
+    console.error(resolved.message);
     return 1;
   }
+  const { cred } = resolved;
 
   const java = resolveJavaExecutable();
   if (!java.ok || !(await javaBinaryExists(java.javaPath))) {
