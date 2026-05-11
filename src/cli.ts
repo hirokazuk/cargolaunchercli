@@ -1,14 +1,17 @@
 #!/usr/bin/env bun
 import { parseArgs } from "node:util";
+import type { Credentials } from "./lib/credentials";
 import { resolveFetchProxyUrl, resolveProxyCredentialsForApp } from "./lib/proxy";
 import { resolveProjectRoot } from "./lib/paths";
 import { runDoctor } from "./commands/doctor";
 import { runInstall } from "./commands/install";
 import { runStart } from "./commands/start";
-import { runAntList, runAntRun, type AntRunProxyAuth } from "./commands/ant";
+import { runAntList, runAntRun } from "./commands/ant";
 
 /** start / ant run / fullbuild 用。失敗時はメッセージを表示して null */
-function requireProxyAuthForApp(explicit?: string): AntRunProxyAuth | null {
+function requireProxyAuthForApp(
+  explicit?: string,
+): { proxyUrl: string; cred: Credentials } | null {
   const r = resolveProxyCredentialsForApp(explicit);
   if (!r.ok) {
     console.error(r.message);
@@ -148,7 +151,7 @@ async function main(): Promise<number> {
         if (!auth) {
           return 1;
         }
-        return await runAntRun(projectRoot, "fullbuild", auth);
+        return await runAntRun(projectRoot, "fullbuild", auth.proxyUrl, auth.cred);
       }
 
     case "ant": {
@@ -172,7 +175,7 @@ async function main(): Promise<number> {
         if (!auth) {
           return 1;
         }
-        return await runAntRun(projectRoot, target, auth);
+        return await runAntRun(projectRoot, target, auth.proxyUrl, auth.cred);
       }
       console.error('ant のサブコマンドは "list" または "run <target>" です');
       return 1;

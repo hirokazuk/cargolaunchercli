@@ -21,17 +21,13 @@ export async function runAntList(projectRoot: string): Promise<number> {
   return 0;
 }
 
-/** CLI で resolveProxyCredentialsForApp 済みのプロキシ認証 */
-export type AntRunProxyAuth = { proxyUrl: string; cred: Credentials };
-
 /** HTA の antrun() — dev_build.xml + プロキシ環境変数 + svn プロパティ */
 export async function runAntRun(
   projectRoot: string,
   target: string,
-  proxyAuth: AntRunProxyAuth,
+  proxyUrl: string,
+  cred: Credentials,
 ): Promise<number> {
-  const { cred, proxyUrl } = proxyAuth;
-
   const java = resolveJavaExecutable();
   if (!java.ok || !(await javaBinaryExists(java.javaPath))) {
     console.error("Java が利用できません。cargo-launcher doctor を実行してください。");
