@@ -31,14 +31,14 @@ Commands:
   -p, --password         パスワード（既定: $CARGO_LAUNCHER_PASSWORD）
 
 install 追加:
-  --proxy-url <url>      fetch のプロキシ（既定: $HTTPS_PROXY / $HTTP_PROXY、なければ HTA 相当のホスト + 認証）
+  --proxy-url <url>      fetch のプロキシ（未指定時は $HTTPS_PROXY、なければ $HTTP_PROXY）
 
 start 追加:
   -f, --log-file <path>  ログ相対パス（HTA の「ログファイル」）
   --delete-log           起動前に該当ログファイルを削除
 
 ant run 追加:
-  --proxy-url <url>      http_proxy / https_proxy の上書き（未指定時は install と同じ解決）
+  --proxy-url <url>      http_proxy / https_proxy の上書き（未指定時は $HTTPS_PROXY、なければ $HTTP_PROXY）
 `);
 }
 
@@ -108,7 +108,7 @@ async function main(): Promise<number> {
       if (extraArgsError(tail)) {
         return 1;
       }
-      return await runInstall(root, cred, optString(values["proxy-url"]));
+      return await runInstall(root, optString(values["proxy-url"]));
 
     case "start":
       if (extraArgsError(tail)) {

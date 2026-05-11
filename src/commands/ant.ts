@@ -54,7 +54,7 @@ export async function runAntRun(
 
   console.log(`${target} を実行します`);
 
-  const proxy = resolveFetchProxyUrl(cred.user, cred.password, proxyUrl);
+  const proxy = resolveFetchProxyUrl(proxyUrl);
   const env: Record<string, string | undefined> = { ...process.env };
   if (proxy) {
     env.http_proxy = proxy;

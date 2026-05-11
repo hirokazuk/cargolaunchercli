@@ -1,35 +1,19 @@
-const DEFAULT_PROXY_HOST_PORT = "proxy.example.com:8080";
-
 /**
- * HTA と同様: http://user:password@host:port
- * ユーザー名・パスワードに含まれる予約文字は encodeURIComponent でエスケープする
+ * fetch の `proxy` 用 URL、または ant の http_proxy/https_proxy に使う URL。
+ * - `explicit`（--proxy-url）があれば優先（認証込み URL でも可）
+ * - なければ `HTTPS_PROXY`、なければ `HTTP_PROXY`（いずれも認証情報を含む完全 URL を想定）
  */
-export function buildProxyUrlWithCredentials(user: string, password: string, hostPort = DEFAULT_PROXY_HOST_PORT): string {
-  const u = encodeURIComponent(user);
-  const p = encodeURIComponent(password);
-  return `http://${u}:${p}@${hostPort}`;
-}
-
-/**
- * fetch の `proxy` 用 URL。
- * - `explicit` があれば優先（既に認証込みでも可）
- * - なければ `HTTPS_PROXY` / `HTTP_PROXY`（Bun が解釈する形式）
- * - それもなければデフォルトホスト + user/password
- */
-export function resolveFetchProxyUrl(
-  user: string,
-  password: string,
-  explicit?: string,
-): string | undefined {
+export function resolveFetchProxyUrl(explicit?: string): string | undefined {
   if (explicit?.trim()) {
     return explicit.trim();
   }
-  const fromEnv = process.env.HTTPS_PROXY ?? process.env.HTTP_PROXY;
-  if (fromEnv?.trim()) {
-    return fromEnv.trim();
+  const https = process.env.HTTPS_PROXY?.trim();
+  if (https) {
+    return https;
   }
-  if (!user || !password) {
-    return undefined;
+  const http = process.env.HTTP_PROXY?.trim();
+  if (http) {
+    return http;
   }
-  return buildProxyUrlWithCredentials(user, password);
+  return undefined;
 }

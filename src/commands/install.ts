@@ -1,7 +1,6 @@
 import { mkdir, readdir, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { resolveFetchProxyUrl } from "../lib/proxy";
-import type { Credentials } from "../lib/credentials";
 import { toolAntDir, toolAntlibDir } from "../lib/paths";
 import installArtifactsToml from "./install-artifacts.toml";
 import type { ArtifactDirToml, InstallArtifactsToml } from "./install-artifacts.shared";
@@ -41,21 +40,12 @@ async function ensureDir(path: string): Promise<void> {
 /**
  * HTA の download(): プロキシ経由 GET、先が失敗したら以降スキップ
  */
-export async function runInstall(
-  root: string,
-  cred: Credentials,
-  proxyUrl?: string,
-): Promise<number> {
-  if (!cred.password) {
-    console.error("パスワードが設定されていません (-p または CARGO_LAUNCHER_PASSWORD)");
-    return 1;
-  }
-
+export async function runInstall(root: string, proxyUrl?: string): Promise<number> {
   await clearAntDir(root);
   await ensureDir(toolAntDir(root));
   await ensureDir(toolAntlibDir(root));
 
-  const proxy = resolveFetchProxyUrl(cred.user, cred.password, proxyUrl);
+  const proxy = resolveFetchProxyUrl(proxyUrl);
 
   let fail = false;
   for (const a of ARTIFACTS) {
