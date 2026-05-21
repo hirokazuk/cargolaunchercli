@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="cargolauncher-test-dev" default="delta" basedir=".">
+  <!-- build.xml を先に取り込む（先頭import の検証用） -->
+  <import file="build.xml"/>
+  <!-- build.xml と重複あり/なし両方を含めるための検証XML -->
+  <target name="beta">
+    <echo message="[dev_build.xml] target=beta"/>
+  </target>
+  <target name="delta" description="should appear between beta and gamma">
+    <echo message="[dev_build.xml] target=delta"/>
+  </target>
+</project>
+

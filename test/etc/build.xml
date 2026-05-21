@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="cargolauncher-test" default="alpha" basedir=".">
+  <!-- fast-xml-parser / regexp 両方で拾えるように name 属性を直書き -->
+  <target name="alpha" description="should be sorted first">
+    <echo message="[build.xml] target=alpha"/>
+  </target>
+  <target name="beta">
+    <echo message="[build.xml] target=beta"/>
+  </target>
+  <target name="gamma" depends="beta">
+    <echo message="[build.xml] target=gamma"/>
+  </target>
+</project>
+

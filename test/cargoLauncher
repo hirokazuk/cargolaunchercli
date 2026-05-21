@@ -1,0 +1,4 @@
+#! /bin/bash
+
+#このシェルに渡された引数を../dist/cargolaunchercliに渡す
+../dist/cargolaunchercli "$@"
